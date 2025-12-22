@@ -1,0 +1,24 @@
+name: Test MikroTik Connection
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: pip install routeros-api
+    
+    - name: Run test (skipped for security)
+      run: |
+        echo "Test would run here with actual credentials"
+        echo "For security, don't hardcode passwords in CI"
+        echo "Use GitHub Secrets for production"
