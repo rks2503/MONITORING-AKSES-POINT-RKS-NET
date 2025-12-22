@@ -1,190 +1,180 @@
 #!/usr/bin/env python3
 """
-Monitoring script untuk RKS NET
-Ambil data dari Netwatch Mikrotik GR3
+Test koneksi ke MikroTik RouterOS API
+Untuk dijalankan di GitHub Actions
 """
 
-import json
 import os
 import sys
-from datetime import datetime
+import json
 import routeros_api
-import yaml
+from datetime import datetime
 
-# Load konfigurasi
-def load_config():
-    """Load konfigurasi dari file"""
-    with open('config/mikrotik_config.yaml', 'r') as f:
-        return yaml.safe_load(f)
-
-def load_customers():
-    """Load data pelanggan"""
-    with open('config/customers.json', 'r') as f:
-        return json.load(f)
-
-def get_netwatch_status(config):
-    """Ambil status dari Netwatch Mikrotik"""
-    try:
-        mikrotik = config['mikrotik']
-        
-        # Connect ke Mikrotik
-        api = routeros_api.RouterOsApi(
-            mikrotik['ip'],
-            username=mikrotik['username'],
-            password=mikrotik['password'],
-            port=mikrotik.get('port', 8728),
-            plaintext_login=True,
-            use_ssl=False
-        )
-        
-        # Ambil data netwatch
-        netwatch = api.get_resource('/tool/netwatch')
-        entries = netwatch.get()
-        
-        # Buat mapping IP -> status
-        status_map = {}
-        for entry in entries:
-            ip = entry.get('host')
-            if ip:
-                status_map[ip] = {
-                    'status': 'UP' if entry.get('status') == 'up' else 'DOWN',
-                    'last_down': entry.get('last-down', ''),
-                    'last_up': entry.get('last-up', ''),
-                    'comment': entry.get('comment', '')
-                }
-        
-        api.disconnect()
-        return status_map
-        
-    except Exception as e:
-        print(f"❌ Error connect ke Mikrotik: {e}")
-        return {}
-
-def generate_status_data(customers, netwatch_data):
-    """Generate data status untuk semua pelanggan"""
-    customers_with_status = []
-    online_count = 0
-    offline_count = 0
+def test_connection():
+    """Test koneksi dan kumpulkan hasil"""
     
-    for customer in customers:
-        ip = customer['ip']
-        netwatch_info = netwatch_data.get(ip, {})
-        
-        status = netwatch_info.get('status', 'UNKNOWN')
-        if status == 'UP':
-            online_count += 1
-        elif status == 'DOWN':
-            offline_count += 1
-        
-        customers_with_status.append({
-            'no': customer['no'],
-            'name': customer['name'],
-            'ip': ip,
-            'status': status,
-            'comment': netwatch_info.get('comment', ''),
-            'last_down': netwatch_info.get('last_down', ''),
-            'last_up': netwatch_info.get('last_up', '')
-        })
-    
-    # Urutkan berdasarkan nomor
-    customers_with_status.sort(key=lambda x: x['no'])
-    
-    return {
-        'last_updated': datetime.now().isoformat(),
-        'customers': customers_with_status,
-        'summary': {
-            'total_customers': len(customers),
-            'online_customers': online_count,
-            'offline_customers': offline_count,
-            'availability_percent': round((online_count / len(customers)) * 100, 2) if customers else 0
-        },
-        'system_info': {
-            'checked_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            'total_checked': len(customers)
-        }
+    results = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "tests": {},
+        "success": False,
+        "error": None
     }
-
-def save_data(data):
-    """Save data ke file JSON"""
-    os.makedirs('data', exist_ok=True)
     
-    # Save ke data/status.json
-    main_file = 'data/status.json'
-    with open(main_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    # Ambil config dari environment variables
+    config = {
+        'host': os.getenv('MIKROTIK_HOST'),
+        'username': os.getenv('MIKROTIK_USER'),
+        'password': os.getenv('MIKROTIK_PASS'),
+        'port': int(os.getenv('MIKROTIK_PORT', 8728)),
+        'plaintext_login': True,
+        'timeout': 15
+    }
     
-    # Copy ke docs/data/ untuk GitHub Pages
-    os.makedirs('docs/data', exist_ok=True)
-    docs_file = 'docs/data/status.json'
-    with open(docs_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    print(f"🔧 Testing connection to {config['host']}:{config['port']}")
     
-    print(f"✅ Data saved to {main_file} and {docs_file}")
+    # Validasi config
+    for key in ['host', 'username', 'password']:
+        if not config[key]:
+            results['error'] = f"Missing {key} in environment variables"
+            print(f"❌ {results['error']}")
+            return results
     
-    # Backup dengan timestamp
-    backup_dir = 'data/history'
-    os.makedirs(backup_dir, exist_ok=True)
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_file = f'{backup_dir}/status_{timestamp}.json'
-    with open(backup_file, 'w', encoding='utf-8') as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    
-    return main_file
-
-def main():
-    """Main function"""
-    print("=" * 60)
-    print("RKS NET - Monitoring 74 Pelanggan")
-    print("=" * 60)
-    
+    api = None
     try:
-        # Load config
-        config = load_config()
-        customers = load_customers()
+        # Test 1: Basic Connection
+        print("1. Testing basic connection...")
+        try:
+            api = routeros_api.connect(**config)
+            results['tests']['basic_connection'] = {
+                "status": "passed",
+                "method": "connect()"
+            }
+            print("   ✅ Basic connection successful")
+        except Exception as e:
+            results['tests']['basic_connection'] = {
+                "status": "failed",
+                "error": str(e)
+            }
+            print(f"   ❌ Basic connection failed: {e}")
+            return results
         
-        print(f"📋 Loaded {len(customers)} customers")
-        print(f"🔗 Connecting to Mikrotik {config['mikrotik']['ip']}...")
+        # Test 2: API Resource Access
+        print("2. Testing API resource access...")
+        try:
+            resource = api.get_resource('/system/resource')
+            info = resource.get()
+            if info:
+                results['tests']['resource_access'] = {
+                    "status": "passed",
+                    "data": {
+                        "board": info[0].get('board-name'),
+                        "model": info[0].get('model'),
+                        "version": info[0].get('version'),
+                        "uptime": info[0].get('uptime')
+                    }
+                }
+                print(f"   ✅ Resource access successful")
+                print(f"   📋 Board: {info[0].get('board-name')}")
+                print(f"   🏷️  Version: {info[0].get('version')}")
+            else:
+                results['tests']['resource_access'] = {
+                    "status": "failed",
+                    "error": "No data returned"
+                }
+                print("   ❌ No data returned")
+        except Exception as e:
+            results['tests']['resource_access'] = {
+                "status": "failed",
+                "error": str(e)
+            }
+            print(f"   ❌ Resource access failed: {e}")
         
-        # Get data from Mikrotik
-        netwatch_data = get_netwatch_status(config)
+        # Test 3: Multiple endpoints
+        print("3. Testing multiple endpoints...")
+        endpoints = ['/system/identity', '/interface', '/ip/address']
+        endpoint_results = {}
         
-        if not netwatch_data:
-            print("⚠️  No data received from Mikrotik")
-            sys.exit(1)
+        for endpoint in endpoints:
+            try:
+                resource = api.get_resource(endpoint)
+                data = resource.get()
+                endpoint_results[endpoint] = {
+                    "status": "passed",
+                    "count": len(data) if data else 0
+                }
+                print(f"   ✅ {endpoint}: {len(data) if data else 0} items")
+            except Exception as e:
+                endpoint_results[endpoint] = {
+                    "status": "failed",
+                    "error": str(e)
+                }
+                print(f"   ❌ {endpoint}: {e}")
         
-        print(f"📊 Got {len(netwatch_data)} entries from Netwatch")
+        results['tests']['endpoints'] = endpoint_results
         
-        # Generate status data
-        data = generate_status_data(customers, netwatch_data)
+        # Test 4: Performance (response time)
+        print("4. Testing response time...")
+        import time
+        start_time = time.time()
         
-        # Save data
-        save_data(data)
+        for _ in range(3):
+            api.get_resource('/system/resource').get()
         
-        # Print summary
-        print("\n" + "=" * 60)
-        print("SUMMARY")
-        print("=" * 60)
-        print(f"Total Pelanggan  : {data['summary']['total_customers']}")
-        print(f"Pelanggan Online : {data['summary']['online_customers']}")
-        print(f"Pelanggan Offline: {data['summary']['offline_customers']}")
-        print(f"Availability     : {data['summary']['availability_percent']}%")
-        print(f"Last Updated     : {data['last_updated']}")
-        print("=" * 60)
+        response_time = (time.time() - start_time) / 3
+        results['tests']['performance'] = {
+            "status": "passed",
+            "avg_response_time": round(response_time, 3)
+        }
+        print(f"   ⏱️  Avg response time: {response_time:.3f}s")
         
-        # Show offline customers
-        offline = [c for c in data['customers'] if c['status'] == 'DOWN']
-        if offline:
-            print(f"\n⚠️  OFFLINE CUSTOMERS ({len(offline)}):")
-            for cust in offline[:5]:  # Show first 5
-                print(f"  {cust['no']:2d}. {cust['name']} ({cust['ip']})")
-            if len(offline) > 5:
-                print(f"  ... and {len(offline)-5} more")
+        # Overall success
+        failed_tests = [t for t in results['tests'].values() 
+                       if isinstance(t, dict) and t.get('status') == 'failed']
         
-        print("\n✅ Monitoring completed successfully!")
+        if len(failed_tests) == 0:
+            results['success'] = True
+            print("\n🎉 ALL TESTS PASSED!")
+        else:
+            results['success'] = False
+            results['error'] = f"{len(failed_tests)} test(s) failed"
+            print(f"\n⚠️  {len(failed_tests)} test(s) failed")
+        
+        return results
         
     except Exception as e:
-        print(f"❌ Error: {e}")
-        sys.exit(1)
+        results['error'] = str(e)
+        print(f"❌ Unexpected error: {e}")
+        return results
+        
+    finally:
+        if api:
+            try:
+                api.disconnect()
+                print("🔌 Connection closed")
+            except:
+                pass
 
-if __name__ == '__main__':
-    main()
+if __name__ == "__main__":
+    # Run tests
+    test_results = test_connection()
+    
+    # Save results to file
+    os.makedirs('logs', exist_ok=True)
+    with open('logs/test_results.json', 'w') as f:
+        json.dump(test_results, f, indent=2)
+    
+    # Save for GitHub Actions summary
+    with open(os.getenv('GITHUB_STEP_SUMMARY', 'test_summary.md'), 'a') as f:
+        f.write(f"# MikroTik Connection Test Results\n\n")
+        f.write(f"**Timestamp:** {test_results['timestamp']}\n")
+        f.write(f"**Status:** {'✅ PASSED' if test_results['success'] else '❌ FAILED'}\n\n")
+        
+        if test_results.get('tests'):
+            f.write("## Test Details\n")
+            for test_name, test_result in test_results['tests'].items():
+                if isinstance(test_result, dict):
+                    status = test_result.get('status', 'unknown')
+                    f.write(f"- **{test_name}:** {status.upper()}\n")
+    
+    # Exit with appropriate code
+    sys.exit(0 if test_results['success'] else 1)
