@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MONITORING AKSES POINT PELANGGAN RKS NET</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: #f5f7fa;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        /* HEADER */
+        .header {
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 25px 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        /* SUMMARY STATS */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 25px;
+            background: #f8fafc;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+            border-top: 4px solid;
+        }
+        
+        .stat-card.total { border-color: #2a5298; }
+        .stat-card.online { border-color: #10b981; }
+        .stat-card.offline { border-color: #ef4444; }
+        
+        .stat-card .number {
+            font-size: 36px;
+            font-weight: 800;
+            margin: 10px 0;
+        }
+        
+        .stat-card.total .number { color: #2a5298; }
+        .stat-card.online .number { color: #10b981; }
+        .stat-card.offline .number { color: #ef4444; }
+        
+        .stat-card .label {
+            font-size: 14px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* TABLE */
+        .table-container {
+            padding: 0 25px 25px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+        
+        th {
+            color: white;
+            padding: 18px 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 15px;
+            border: none;
+        }
+        
+        tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+        
+        tbody tr:hover {
+            background: #f1f5f9;
+        }
+        
+        td {
+            padding: 16px 15px;
+            font-size: 14px;
+        }
+        
+        /* STATUS BADGE */
+        .status {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 13px;
+            display: inline-block;
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        .status.up {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #86efac;
+        }
+        
+        .status.down {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        /* FOOTER */
+        .footer {
+            background: #f8fafc;
+            padding: 20px 25px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .last-update {
+            font-size: 14px;
+            color: #475569;
+        }
+        
+        .update-time {
+            font-weight: 700;
+            color: #1e40af;
+            font-size: 15px;
+        }
+        
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            color: #475569;
+        }
+        
+        .countdown {
+            background: #1e40af;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        /* LOADING */
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #e2e8f0;
+            border-top: 4px solid #1e40af;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 22px; }
+            .stats { grid-template-columns: 1fr; padding: 15px; }
+            .footer { flex-direction: column; text-align: center; }
+            .table-container { padding: 0 15px 15px; }
+            th, td { padding: 12px 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>MONITORING AKSES POINT PELANGGAN</h1>
+            <p>RKS NET - Real-time Status Monitoring</p>
+        </div>
+        
+        <!-- SUMMARY STATISTICS -->
+        <div class="stats">
+            <div class="stat-card total">
+                <div class="label">Total Pelanggan</div>
+                <div class="number" id="totalCustomers">0</div>
+            </div>
+            <div class="stat-card online">
+                <div class="label">Pelanggan Online</div>
+                <div class="number" id="onlineCustomers">0</div>
+            </div>
+            <div class="stat-card offline">
+                <div class="label">Pelanggan Offline</div>
+                <div class="number" id="offlineCustomers">0</div>
+            </div>
+        </div>
+        
+        <!-- MONITORING TABLE -->
+        <div class="table-container">
+            <table id="monitoringTable">
+                <thead>
+                    <tr>
+                        <th width="8%">NO</th>
+                        <th width="32%">NAMA PEMILIK ROUTER</th>
+                        <th width="25%">IP ADDRESS AKSES POINT</th>
+                        <th width="15%">STATUS</th>
+                        <th width="20%">LAST UPDATE</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Data akan dimuat di sini -->
+                    <tr>
+                        <td colspan="5">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                <p>Memuat data monitoring...</p>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- FOOTER -->
+        <div class="footer">
+            <div class="last-update">
+                <span>Terakhir update: </span>
+                <span class="update-time" id="lastUpdate">-</span>
+            </div>
+            <div class="auto-refresh">
+                <span>Auto refresh dalam:</span>
+                <div class="countdown" id="countdown">60</div>
+                <span>detik</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data pelanggan statis
+        const CUSTOMERS = [
+            { no: 1, name: "MUNZANI-TENDA", ip: "192.168.17.7" },
+            { no: 2, name: "FIYU-TENDA", ip: "192.168.17.8" },
+            { no: 3, name: "RABANI-TENDA", ip: "192.168.17.9" },
+            { no: 4, name: "NAYLA-TENDA", ip: "192.168.17.10" },
+            { no: 5, name: "KARIM-TENDA", ip: "192.168.17.11" },
+            { no: 6, name: "ABDULLAH AZIZ-TENDA", ip: "192.168.17.12" },
+            { no: 7, name: "TOHIR-TENDA", ip: "192.168.17.13" },
+            { no: 8, name: "USWAHULYA-TENDA", ip: "192.168.17.14" },
+            { no: 9, name: "FIRMAN-TENDA", ip: "192.168.17.15" },
+            { no: 10, name: "DAVI-TENDA", ip: "192.168.17.16" },
+            { no: 11, name: "HIYAZ-TENDA", ip: "192.168.17.17" },
+            { no: 12, name: "ADIT-TENDA", ip: "192.168.17.18" },
+            { no: 13, name: "JASMINE-DLINK", ip: "192.168.17.19" },
+            { no: 14, name: "BIQIS-TENDA", ip: "192.168.17.20" },
+            { no: 15, name: "CICI PATMAWATI", ip: "192.168.17.21" },
+            { no: 16, name: "KHAERUL UMAM-TENDA", ip: "192.168.17.22" },
+            { no: 17, name: "WARUNG ABAH UDI-TENDA", ip: "192.168.17.23" },
+            { no: 18, name: "AZKA NAILA-TENDA", ip: "192.168.17.24" },
+            { no: 19, name: "RAHMA-TENDA", ip: "192.168.17.25" },
+            { no: 20, name: "RIVA-TENDA", ip: "192.168.17.27" },
+            { no: 21, name: "PUTRI-TENDA", ip: "192.168.17.28" },
+            { no: 22, name: "HAFIDZ-TENDA", ip: "192.168.17.29" },
+            { no: 23, name: "OM AMEX669272-TENDA", ip: "192.168.17.30" },
+            { no: 24, name: "PAIZ2-TENDA", ip: "192.168.17.31" },
+            { no: 25, name: "AWANG-TENDA", ip: "192.168.17.32" },
+            { no: 26, name: "FATIMAH-TENDA", ip: "192.168.17.33" },
+            { no: 27, name: "SAYSAY-TENDA", ip: "192.168.17.34" },
+            { no: 28, name: "KHALIDAH AZALINE-TENDA", ip: "192.168.17.35" },
+            { no: 29, name: "PAIZ-DLINK", ip: "192.168.17.36" },
+            { no: 30, name: "ISLAH-OLLEH", ip: "192.168.17.37" },
+            { no: 31, name: "IRSAD-MASLANI-TENDA", ip: "192.168.17.38" },
+            { no: 32, name: "AINA SYAHLA-DLINK", ip: "192.168.17.39" },
+            { no: 33, name: "ALRIZQI-DLINK", ip: "192.168.17.40" },
+            { no: 34, name: "NESYA ZASKIA-DLINK", ip: "192.168.17.41" },
+            { no: 35, name: "KHAERUNISA-DLINK", ip: "192.168.17.42" },
+            { no: 36, name: "ARKHAN-TENDA", ip: "192.168.17.43" },
+            { no: 37, name: "ZIDAN-DLINK", ip: "192.168.17.44" },
+            { no: 38, name: "MPAY-TENDA", ip: "192.168.17.45" },
+            { no: 39, name: "ANAYA-TENDA", ip: "192.168.17.46" },
+            { no: 40, name: "M410-OLLEH", ip: "192.168.17.47" },
+            { no: 41, name: "DELUTFI-TENDA", ip: "192.168.17.48" },
+            { no: 42, name: "ELMA NABILA-OLLEH", ip: "192.168.17.49" },
+            { no: 43, name: "AZKA-TENDA", ip: "192.168.17.50" },
+            { no: 44, name: "VANIA-HS AIRPO", ip: "192.168.17.51" },
+            { no: 45, name: "NMS-OLLEH", ip: "192.168.17.52" },
+            { no: 46, name: "SAYYID-DLINK", ip: "192.168.17.53" },
+            { no: 47, name: "UMAYAH-TENDA", ip: "192.168.17.54" },
+            { no: 48, name: "BOBBA-DLINK", ip: "192.168.17.55" },
+            { no: 49, name: "HILYA-TENDA", ip: "192.168.17.56" },
+            { no: 50, name: "RAHMAN-DLINK", ip: "192.168.17.57" },
+            { no: 51, name: "AFIK-DLINK", ip: "192.168.17.58" },
+            { no: 52, name: "ISKANDAR-DLINK", ip: "192.168.17.59" },
+            { no: 53, name: "HELOS1-TENDA", ip: "192.168.17.60" },
+            { no: 54, name: "HELOS2-TENDA", ip: "192.168.17.61" },
+            { no: 55, name: "IRGI-TENDA", ip: "192.168.17.62" },
+            { no: 56, name: "NIDA-TENDA", ip: "192.168.17.63" },
+            { no: 57, name: "AZIZAH-TENDA", ip: "192.168.17.64" },
+            { no: 58, name: "MA UJU-TENDA", ip: "192.168.17.65" },
+            { no: 59, name: "INTAN-TENDA", ip: "192.168.17.66" },
+            { no: 60, name: "GAYA-TENDA", ip: "192.168.17.67" },
+            { no: 61, name: "ANISUL-DLINK", ip: "192.168.17.68" },
+            { no: 62, name: "RIZQI/MAKI-TENDA", ip: "192.168.17.69" },
+            { no: 63, name: "BU DARA-DLINK", ip: "192.168.17.70" },
+            { no: 64, name: "MILA-TENDA", ip: "192.168.17.71" },
+            { no: 65, name: "MAHARANI-TENDA", ip: "192.168.17.72" },
+            { no: 66, name: "UMAR-TENDA", ip: "192.168.17.73" },
+            { no: 67, name: "SYIFA-TENDA", ip: "192.168.17.74" },
+            { no: 68, name: "FAIQ-DLINK", ip: "192.168.17.75" },
+            { no: 69, name: "SYIFA-TENDA", ip: "192.168.17.76" },
+            { no: 70, name: "VANESA-TENDA", ip: "192.168.17.77" },
+            { no: 71, name: "JAJAT-TENDA", ip: "192.168.17.78" },
+            { no: 72, name: "YAYAH-WAVE CHINA", ip: "192.168.17.79" },
+            { no: 73, name: "AULIYA-TENDA", ip: "192.168.17.80" }
+        ];
+
+        // Fungsi untuk load data dari API
+        async function loadData() {
+            try {
+                const response = await fetch('./data/status.json?t=' + new Date().getTime());
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (error) {
+                console.error('Error loading data:', error);
+                // Fallback ke default status jika error
+                updateDashboardWithFallback();
+            }
+        }
+
+        // Update dashboard dengan data dari API
+        function updateDashboard(data) {
+            const lastUpdated = data.last_updated || new Date().toISOString();
+            const statusMap = {};
+            
+            // Buat mapping IP -> status dari data API
+            if (data.devices && data.devices.length > 0) {
+                data.devices.forEach(device => {
+                    if (device.aps && device.aps.length > 0) {
+                        device.aps.forEach(ap => {
+                            statusMap[ap.ip] = ap.status;
+                        });
+                    }
+                });
+            }
+            
+            // Update table
+            let tableHTML = '';
+            let onlineCount = 0;
+            let offlineCount = 0;
+            
+            CUSTOMERS.forEach(customer => {
+                const status = statusMap[customer.ip] || 'UNKNOWN';
+                const statusClass = status === 'UP' ? 'up' : 'down';
+                const statusText = status === 'UP' ? 'ONLINE' : 'OFFLINE';
+                
+                if (status === 'UP') onlineCount++;
+                if (status === 'DOWN') offlineCount++;
+                
+                tableHTML += `
+                    <tr>
+                        <td>${customer.no}</td>
+                        <td><strong>${customer.name}</strong></td>
+                        <td>${customer.ip}</td>
+                        <td><span class="status ${statusClass}">${statusText}</span></td>
+                        <td>${formatTime(lastUpdated)}</td>
+                    </tr>
+                `;
+            });
+            
+            // Update summary stats
+            document.getElementById('totalCustomers').textContent = CUSTOMERS.length;
+            document.getElementById('onlineCustomers').textContent = onlineCount;
+            document.getElementById('offlineCustomers').textContent = offlineCount;
+            
+            // Update last update time
+            document.getElementById('lastUpdate').textContent = formatDateTime(lastUpdated);
+            
+            // Update table body
+            document.getElementById('tableBody').innerHTML = tableHTML;
+            
+            // Play alert jika ada pelanggan offline
+            if (offlineCount > 0) {
+                playAlertSound(offlineCount);
+            }
+        }
+
+        // Fallback jika API error
+        function updateDashboardWithFallback() {
+            let tableHTML = '';
+            
+            CUSTOMERS.forEach(customer => {
+                tableHTML += `
+                    <tr>
+                        <td>${customer.no}</td>
+                        <td><strong>${customer.name}</strong></td>
+                        <td>${customer.ip}</td>
+                        <td><span class="status" style="background:#fef3c7;color:#92400e;">LOADING</span></td>
+                        <td>-</td>
+                    </tr>
+                `;
+            });
+            
+            document.getElementById('totalCustomers').textContent = CUSTOMERS.length;
+            document.getElementById('onlineCustomers').textContent = '-';
+            document.getElementById('offlineCustomers').textContent = '-';
+            document.getElementById('lastUpdate').textContent = 'Menunggu data...';
+            document.getElementById('tableBody').innerHTML = tableHTML;
+        }
+
+        // Format waktu
+        function formatTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleTimeString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        function formatDateTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString('id-ID', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+
+        // Alert sound
+        function playAlertSound(offlineCount) {
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 600;
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.5);
+            } catch (e) {
+                // Skip jika browser tidak support
+            }
+        }
+
+        // Auto refresh countdown
+        let countdown = 60;
+        function startCountdown() {
+            setInterval(() => {
+                countdown--;
+                document.getElementById('countdown').textContent = countdown;
+                
+                if (countdown <= 0) {
+                    countdown = 60;
+                    loadData();
+                }
+            }, 1000);
+        }
+
+        // Auto refresh setiap 60 detik
+        function startAutoRefresh() {
+            setInterval(() => {
+                loadData();
+            }, 60000);
+        }
+
+        // Initialize
+        window.onload = function() {
+            loadData();
+            startCountdown();
+            startAutoRefresh();
+        };
+    </script>
+</body>
+</html>
