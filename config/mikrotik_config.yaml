@@ -1,1 +1,24 @@
+# Konfigurasi Mikrotik GR3
+mikrotik:
+  ip: "IP_PUBLIC_GR3_ANDA"      # Ganti dengan IP Anda
+  username: "monitor"
+  password: "PASSWORD_ANDA"      # Ganti dengan password
+  port: 8728
+  timeout: 10
 
+# Pengaturan monitoring
+monitoring:
+  interval_seconds: 30           # Interval check di netwatch
+  ping_timeout: 3                # Timeout ping
+  update_interval: 300           # Update dashboard setiap 5 menit
+
+# Notifikasi (opsional)
+notifications:
+  telegram:
+    enabled: false
+    bot_token: ""
+    chat_id: ""
+  email:
+    enabled: false
+    smtp_server: ""
+    email_to: ""
