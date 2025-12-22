@@ -22,3 +22,12 @@ Klik "Fork" di kanan atas untuk copy repository ke akun Anda.
 
 # Buat user monitoring
 /user add name=monitor password=PASSWORD_ANDA group=read
+# MikroTik API Tester
+
+Script Python untuk testing koneksi ke MikroTik RouterOS API.
+
+## 🚀 Cara Penggunaan
+
+### Instalasi
+```bash
+pip install -r requirements.txt
