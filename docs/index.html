@@ -3,83 +3,227 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Monitoring MikroTik - M-CBBHasani</title>
+    <title>Dashboard Monitoring Jaringan - M-CBBHasani</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
     <style>
-        body { background-color: #f8f9fa; padding-top: 20px; }
-        .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .signal-good { color: #28a745; }
-        .signal-weak { color: #ffc107; }
-        .signal-poor { color: #dc3545; }
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding-top: 20px;
+            padding-bottom: 50px;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        .card-header {
+            background: linear-gradient(90deg, #4a6fa5, #2c3e50);
+            border-bottom: none;
+            padding: 20px 25px;
+        }
+        .stats-card {
+            text-align: center;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .stats-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .stats-card.dhcp { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stats-card.static { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .device-online { color: #28a745; font-weight: bold; }
+        .device-idle { color: #ffc107; }
+        .device-offline { color: #dc3545; }
         #loading-spinner { display: none; }
+        .refresh-btn {
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            border: none;
+            border-radius: 50px;
+            padding: 10px 25px;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .refresh-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        .last-update {
+            background: rgba(0, 0, 0, 0.05);
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1 class="mb-4"><i class="bi bi-router"></i> Dashboard Monitoring Akses Point</h1>
-        
-        <!-- Card Info Router -->
-        <div class="card">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Informasi Router</h5>
+        <!-- HEADER -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="text-white mb-1"><i class="bi bi-diagram-3-fill"></i> Monitoring Jaringan</h1>
+                <p class="text-white-50 mb-0">Dashboard real-time untuk semua perangkat terhubung</p>
             </div>
-            <div class="card-body">
-                <div id="router-info">
-                    <p class="text-muted">Memuat data...</p>
+            <div class="d-flex align-items-center">
+                <div class="last-update text-white me-3">
+                    <i class="bi bi-clock"></i> Update: <span id="last-update">-</span>
+                </div>
+                <button class="refresh-btn" onclick="refreshData()">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- STATS CARDS -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="stats-card total">
+                    <h3><i class="bi bi-pc-display-horizontal"></i></h3>
+                    <h2 id="total-devices">0</h2>
+                    <p class="mb-0">Total Perangkat</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card dhcp">
+                    <h3><i class="bi bi-hdd-network"></i></h3>
+                    <h2 id="dhcp-devices">0</h2>
+                    <p class="mb-0">DHCP Client</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card static">
+                    <h3><i class="bi bi-ethernet"></i></h3>
+                    <h2 id="static-devices">0</h2>
+                    <p class="mb-0">Static IP</p>
                 </div>
             </div>
         </div>
 
-        <!-- Card Daftar Client -->
-        <div class="card">
-            <div class="card-header bg-success text-white">
-                <h5 class="mb-0"><i class="bi bi-wifi"></i> Client Wireless Terhubung 
-                    <span id="client-count-badge" class="badge bg-light text-dark ms-2">0</span>
-                </h5>
+        <!-- ROUTER INFO -->
+        <div class="glass-card">
+            <div class="card-header text-white">
+                <h4 class="mb-0"><i class="bi bi-router"></i> Informasi Router</h4>
             </div>
             <div class="card-body">
-                <div class="d-flex justify-content-between mb-3">
-                    <button class="btn btn-sm btn-outline-primary" onclick="refreshData()">
-                        <i class="bi bi-arrow-clockwise"></i> Refresh Data
-                    </button>
+                <div class="row" id="router-info">
+                    <div class="col-md-3 text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-router" style="font-size: 4rem; color: #4a6fa5;"></i>
+                        </div>
+                        <h5 id="router-name">Loading...</h5>
+                        <span class="badge bg-success" id="router-status">Online</span>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p><strong><i class="bi bi-motherboard"></i> Model:</strong><br>
+                                <span id="router-model">-</span></p>
+                                <p><strong><i class="bi bi-cpu"></i> CPU Load:</strong><br>
+                                <span id="router-cpu">-</span>%</p>
+                            </div>
+                            <div class="col-md-4">
+                                <p><strong><i class="bi bi-broadcast"></i> RouterOS:</strong><br>
+                                <span id="router-version">-</span></p>
+                                <p><strong><i class="bi bi-wifi"></i> Interface:</strong><br>
+                                <span id="router-interface">-</span></p>
+                            </div>
+                            <div class="col-md-4">
+                                <p><strong><i class="bi bi-clock-history"></i> Uptime:</strong><br>
+                                <span id="router-uptime">-</span></p>
+                                <p><strong><i class="bi bi-calendar"></i> Last Update:</strong><br>
+                                <span id="router-update">-</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- DEVICE TABLE -->
+        <div class="glass-card">
+            <div class="card-header text-white">
+                <h4 class="mb-0"><i class="bi bi-device-hdd"></i> Daftar Perangkat Aktif 
+                    <span class="badge bg-light text-dark ms-2" id="device-count">0</span>
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
                     <div class="spinner-border text-primary" id="loading-spinner" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-primary btn-sm active" onclick="filterDevices('all')">
+                            <i class="bi bi-list"></i> Semua
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="filterDevices('online')">
+                            <i class="bi bi-check-circle"></i> Online
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm" onclick="filterDevices('idle')">
+                            <i class="bi bi-clock"></i> Idle
+                        </button>
+                    </div>
                 </div>
+                
                 <div class="table-responsive">
-                    <table class="table table-hover table-sm" id="client-table">
+                    <table class="table table-hover" id="device-table">
                         <thead class="table-light">
                             <tr>
                                 <th>#</th>
-                                <th>MAC Address</th>
-                                <th>Interface</th>
-                                <th>Sinyal</th>
-                                <th>Uptime</th>
-                                <th>TX Rate</th>
-                                <th>RX Rate</th>
+                                <th><i class="bi bi-fingerprint"></i> MAC Address</th>
+                                <th><i class="bi bi-ip"></i> IP Address</th>
+                                <th><i class="bi bi-pc-display"></i> Hostname</th>
+                                <th><i class="bi bi-ethernet"></i> Interface</th>
+                                <th><i class="bi bi-activity"></i> Status</th>
+                                <th><i class="bi bi-info-circle"></i> Tipe</th>
                             </tr>
                         </thead>
-                        <tbody id="client-table-body">
-                            <tr><td colspan="7" class="text-center text-muted">Tidak ada data client atau sedang memuat...</td></tr>
+                        <tbody id="device-table-body">
+                            <tr>
+                                <td colspan="7" class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Memuat data...</span>
+                                    </div>
+                                    <p class="mt-2 text-muted">Memuat data perangkat...</p>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
-                <p class="text-muted small mt-3">
-                    <i class="bi bi-clock"></i> Data diperbarui otomatis setiap 30 detik. Terakhir diperbarui: <span id="last-update">-</span>
-                </p>
+                
+                <div class="mt-4 text-center">
+                    <div class="alert alert-info d-inline-flex align-items-center">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Data diperbarui otomatis setiap 30 detik
+                    </div>
+                </div>
             </div>
         </div>
         
-        <footer class="mt-4 text-center text-muted small">
-            <p>Powered by MikroTik API &copy; 2024</p>
+        <footer class="text-center text-white mt-4">
+            <p class="mb-0">© 2024 Monitoring System | Powered by MikroTik API</p>
+            <small>Dashboard version 1.0</small>
         </footer>
     </div>
 
+    <!-- SCRIPTS -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    
     <script>
         const API_URL = 'http://api.cekrouter.cyou/api/all-clients';
         let autoRefreshInterval;
+        let currentFilter = 'all';
+        let allDevices = [];
 
         // Fungsi utama mengambil data
         async function fetchData() {
@@ -89,16 +233,17 @@
                 const data = await response.json();
                 
                 if (data.success && data.routers.length > 0) {
-                    const router = data.routers[0]; // Ambil data router pertama
+                    const router = data.routers[0];
                     updateRouterInfo(router);
-                    updateClientTable(router.wireless_clients || []);
+                    updateStats(router.active_clients || []);
+                    updateDeviceTable(router.active_clients || []);
                     updateLastUpdate();
                 } else {
                     showError('Data dari API tidak sesuai format.');
                 }
             } catch (error) {
                 console.error('Error fetching data:', error);
-                showError('Gagal mengambil data dari server.');
+                showError('Gagal mengambil data dari server. Pastikan API berjalan.');
             } finally {
                 showLoading(false);
             }
@@ -106,60 +251,129 @@
 
         // Update info router
         function updateRouterInfo(router) {
-            const infoDiv = document.getElementById('router-info');
-            infoDiv.innerHTML = `
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong><i class="bi bi-geo-alt"></i> Lokasi:</strong> ${router.router_location || 'N/A'}</p>
-                        <p><strong><i class="bi bi-pc-display"></i> Identity:</strong> ${router.router_identity || 'N/A'}</p>
-                        <p><strong><i class="bi bi-cpu"></i> Model:</strong> ${router.system?.board_name || 'N/A'}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong><i class="bi bi-broadcast"></i> Versi OS:</strong> ${router.system?.version || 'N/A'}</p>
-                        <p><strong><i class="bi bi-clock-history"></i> Uptime:</strong> ${router.system?.uptime || 'N/A'}</p>
-                        <p><strong><i class="bi bi-speedometer2"></i> CPU Load:</strong> ${router.system?.cpu_load || 'N/A'}%</p>
-                    </div>
-                </div>
-            `;
+            document.getElementById('router-name').textContent = router.router_location || 'Unknown';
+            document.getElementById('router-model').textContent = router.system?.board_name || '-';
+            document.getElementById('router-version').textContent = router.system?.version || '-';
+            document.getElementById('router-cpu').textContent = router.system?.cpu_load || '-';
+            document.getElementById('router-uptime').textContent = router.system?.uptime || '-';
+            document.getElementById('router-update').textContent = new Date().toLocaleTimeString('id-ID');
+            
+            // Cari interface paling banyak digunakan
+            if (router.active_clients && router.active_clients.length > 0) {
+                const interfaceCount = {};
+                router.active_clients.forEach(client => {
+                    const iface = client.interface || 'unknown';
+                    interfaceCount[iface] = (interfaceCount[iface] || 0) + 1;
+                });
+                const mostUsed = Object.keys(interfaceCount).reduce((a, b) => 
+                    interfaceCount[a] > interfaceCount[b] ? a : b
+                );
+                document.getElementById('router-interface').textContent = mostUsed;
+            }
         }
 
-        // Update tabel client
-        function updateClientTable(clients) {
-            const tableBody = document.getElementById('client-table-body');
-            const badge = document.getElementById('client-count-badge');
+        // Update stats cards
+        function updateStats(clients) {
+            const total = clients.length;
+            const dhcpCount = clients.filter(c => c.is_dhcp).length;
+            const staticCount = total - dhcpCount;
             
-            badge.textContent = clients.length;
+            document.getElementById('total-devices').textContent = total;
+            document.getElementById('dhcp-devices').textContent = dhcpCount;
+            document.getElementById('static-devices').textContent = staticCount;
+            document.getElementById('device-count').textContent = total;
+        }
+
+        // Update tabel device
+        function updateDeviceTable(clients) {
+            allDevices = clients;
+            applyFilter();
+        }
+
+        // Filter devices berdasarkan status
+        function filterDevices(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            applyFilter();
+        }
+
+        function applyFilter() {
+            let filteredDevices = allDevices;
+            
+            if (currentFilter === 'online') {
+                filteredDevices = allDevices.filter(d => d.status === 'reachable');
+            } else if (currentFilter === 'idle') {
+                filteredDevices = allDevices.filter(d => d.status === 'noarp');
+            }
+            
+            renderDeviceTable(filteredDevices);
+        }
+
+        function renderDeviceTable(clients) {
+            const tableBody = document.getElementById('device-table-body');
             
             if (clients.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Tidak ada client wireless yang terhubung.</td></tr>`;
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-5">
+                            <i class="bi bi-inbox" style="font-size: 3rem; color: #6c757d;"></i>
+                            <p class="mt-3 text-muted">Tidak ada perangkat yang ditemukan</p>
+                        </td>
+                    </tr>
+                `;
                 return;
             }
             
             let html = '';
             clients.forEach((client, index) => {
-                const signalClass = getSignalClass(client.signal_strength);
+                // Status badge
+                let statusBadge = '';
+                if (client.status === 'reachable') {
+                    statusBadge = '<span class="badge bg-success">Online</span>';
+                } else if (client.status === 'noarp') {
+                    statusBadge = '<span class="badge bg-warning">Idle</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-secondary">Unknown</span>';
+                }
+                
+                // Tipe IP badge
+                const typeBadge = client.is_dhcp 
+                    ? '<span class="badge bg-info">DHCP</span>' 
+                    : '<span class="badge bg-light text-dark">Static</span>';
+                
+                // Hostname atau fallback
+                const hostname = client.hostname || 
+                                (client.comment || 'Unknown').substring(0, 20) + 
+                                (client.comment && client.comment.length > 20 ? '...' : '');
+                
                 html += `
                     <tr>
                         <td>${index + 1}</td>
-                        <td><code>${client.mac_address || 'N/A'}</code></td>
-                        <td>${client.interface || 'N/A'}</td>
-                        <td class="${signalClass}"><i class="bi bi-wifi"></i> ${client.signal_strength || 'N/A'}</td>
-                        <td>${client.uptime || 'N/A'}</td>
-                        <td>${client.tx_rate || 'N/A'}</td>
-                        <td>${client.rx_rate || 'N/A'}</td>
+                        <td><code class="bg-light p-1 rounded">${client.mac_address || 'N/A'}</code></td>
+                        <td>${client.ip_address || 'N/A'}</td>
+                        <td>${hostname}</td>
+                        <td><span class="badge bg-secondary">${client.interface || 'N/A'}</span></td>
+                        <td>${statusBadge}</td>
+                        <td>${typeBadge}</td>
                     </tr>
                 `;
             });
             tableBody.innerHTML = html;
-        }
-
-        // Helper: tentukan kelas CSS berdasarkan kekuatan sinyal
-        function getSignalClass(signalStr) {
-            if (!signalStr) return '';
-            const signal = parseInt(signalStr.replace('dBm', '').trim());
-            if (signal >= -60) return 'signal-good';
-            if (signal >= -70) return 'signal-weak';
-            return 'signal-poor';
+            
+            // Inisialisasi DataTables jika belum
+            if (!$.fn.DataTable.isDataTable('#device-table')) {
+                $('#device-table').DataTable({
+                    pageLength: 10,
+                    language: {
+                        search: "Cari:",
+                        lengthMenu: "Tampilkan _MENU_ perangkat",
+                        info: "Menampilkan _START_ sampai _END_ dari _TOTAL_ perangkat"
+                    }
+                });
+            }
         }
 
         // Update waktu terakhir refresh
@@ -175,8 +389,15 @@
 
         // Tampilkan pesan error
         function showError(message) {
-            const tableBody = document.getElementById('client-table-body');
-            tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> ${message}</td></tr>`;
+            const tableBody = document.getElementById('device-table-body');
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-danger py-5">
+                        <i class="bi bi-exclamation-triangle" style="font-size: 3rem;"></i>
+                        <p class="mt-3">${message}</p>
+                    </td>
+                </tr>
+            `;
         }
 
         // Fungsi refresh manual
@@ -188,7 +409,7 @@
 
         // Auto refresh setiap 30 detik
         function startAutoRefresh() {
-            autoRefreshInterval = setInterval(fetchData, 30000); // 30 detik
+            autoRefreshInterval = setInterval(fetchData, 30000);
         }
 
         // Jalankan saat halaman pertama kali dimuat
@@ -199,3 +420,4 @@
     </script>
 </body>
 </html>
+
