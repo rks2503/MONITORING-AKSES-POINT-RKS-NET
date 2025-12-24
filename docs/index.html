@@ -3,143 +3,199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MONITORING AKSES POINT RKS NET</title>
+    <title>Dashboard Monitoring MikroTik - M-CBBHasani</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
-        body { background: #f5f5f5; padding: 20px; }
-        .container { max-width: 1400px; margin: 0 auto; background: white; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .header { background: #0066cc; color: white; padding: 20px; text-align: center; }
-        .header h1 { font-size: 24px; margin-bottom: 5px; }
-        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; padding: 20px; }
-        .stat-card { background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center; }
-        .stat-number { font-size: 32px; font-weight: bold; margin: 10px 0; }
-        .total .stat-number { color: #0066cc; }
-        .online .stat-number { color: #28a745; }
-        .offline .stat-number { color: #dc3545; }
-        .table-container { padding: 20px; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; min-width: 1200px; }
-        th { background: #e9ecef; padding: 12px 15px; text-align: left; font-weight: 600; }
-        td { padding: 12px 15px; border-bottom: 1px solid #eee; }
-        tr:hover { background: #f8f9fa; }
-        .status { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 12px; }
-        .status.up { background: #d4edda; color: #155724; }
-        .status.down { background: #f8d7da; color: #721c24; animation: blink 1s infinite; }
-        @keyframes blink { 50% { opacity: 0.7; } }
-        .footer { background: #f8f9fa; padding: 15px 20px; text-align: center; border-top: 1px solid #dee2e6; color: #666; font-size: 14px; }
-        .update-time { font-weight: bold; color: #0066cc; }
-        .loading { text-align: center; padding: 40px; }
-        @media (max-width: 768px) { .stats { grid-template-columns: 1fr; } }
+        body { background-color: #f8f9fa; padding-top: 20px; }
+        .card { margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .signal-good { color: #28a745; }
+        .signal-weak { color: #ffc107; }
+        .signal-poor { color: #dc3545; }
+        #loading-spinner { display: none; }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>MONITORING AKSES POINT RKS NET</h1>
-            <p>Monitoring 74 Pelanggan - Real Time Status</p>
-        </div>
+        <h1 class="mb-4"><i class="bi bi-router"></i> Dashboard Monitoring Akses Point</h1>
         
-        <div class="stats">
-            <div class="stat-card total">
-                <div>Total Pelanggan</div>
-                <div class="stat-number" id="total">0</div>
+        <!-- Card Info Router -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Informasi Router</h5>
             </div>
-            <div class="stat-card online">
-                <div>Pelanggan Online</div>
-                <div class="stat-number" id="online">0</div>
-            </div>
-            <div class="stat-card offline">
-                <div>Pelanggan Offline</div>
-                <div class="stat-number" id="offline">0</div>
+            <div class="card-body">
+                <div id="router-info">
+                    <p class="text-muted">Memuat data...</p>
+                </div>
             </div>
         </div>
-        
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th width="8%">NO</th>
-                        <th width="35%">NAMA PEMILIK ROUTER</th>
-                        <th width="25%">IP ADDRESS AKSES POINT</th>
-                        <th width="12%">STATUS</th>
-                        <th width="20%">LAST UPDATE</th>
-                    </tr>
-                </thead>
-                <tbody id="tableBody">
-                    <tr><td colspan="5" class="loading">Memuat data...</td></tr>
-                </tbody>
-            </table>
+
+        <!-- Card Daftar Client -->
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="bi bi-wifi"></i> Client Wireless Terhubung 
+                    <span id="client-count-badge" class="badge bg-light text-dark ms-2">0</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <button class="btn btn-sm btn-outline-primary" onclick="refreshData()">
+                        <i class="bi bi-arrow-clockwise"></i> Refresh Data
+                    </button>
+                    <div class="spinner-border text-primary" id="loading-spinner" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm" id="client-table">
+                        <thead class="table-light">
+                            <tr>
+                                <th>#</th>
+                                <th>MAC Address</th>
+                                <th>Interface</th>
+                                <th>Sinyal</th>
+                                <th>Uptime</th>
+                                <th>TX Rate</th>
+                                <th>RX Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="client-table-body">
+                            <tr><td colspan="7" class="text-center text-muted">Tidak ada data client atau sedang memuat...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-muted small mt-3">
+                    <i class="bi bi-clock"></i> Data diperbarui otomatis setiap 30 detik. Terakhir diperbarui: <span id="last-update">-</span>
+                </p>
+            </div>
         </div>
         
-        <div class="footer">
-            <div>Terakhir update: <span class="update-time" id="lastUpdate">-</span></div>
-            <div>Auto refresh dalam <span id="countdown">60</span> detik</div>
-        </div>
+        <footer class="mt-4 text-center text-muted small">
+            <p>Powered by MikroTik API &copy; 2024</p>
+        </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        async function loadData() {
+        const API_URL = 'http://api.cekrouter.cyou/api/all-clients';
+        let autoRefreshInterval;
+
+        // Fungsi utama mengambil data
+        async function fetchData() {
+            showLoading(true);
             try {
-                const response = await fetch('./data/status.json?t=' + new Date().getTime());
+                const response = await fetch(API_URL);
                 const data = await response.json();
-                updateDashboard(data);
+                
+                if (data.success && data.routers.length > 0) {
+                    const router = data.routers[0]; // Ambil data router pertama
+                    updateRouterInfo(router);
+                    updateClientTable(router.wireless_clients || []);
+                    updateLastUpdate();
+                } else {
+                    showError('Data dari API tidak sesuai format.');
+                }
             } catch (error) {
-                document.getElementById('tableBody').innerHTML = `
-                    <tr><td colspan="5" style="text-align:center;color:#dc3545;padding:20px;">
-                        ❌ Gagal memuat data. Pastikan GitHub Actions sudah berjalan.
-                    </td></tr>`;
+                console.error('Error fetching data:', error);
+                showError('Gagal mengambil data dari server.');
+            } finally {
+                showLoading(false);
             }
         }
-        
-        function updateDashboard(data) {
-            // Update stats
-            document.getElementById('total').textContent = data.summary.total_customers;
-            document.getElementById('online').textContent = data.summary.online_customers;
-            document.getElementById('offline').textContent = data.summary.offline_customers;
+
+        // Update info router
+        function updateRouterInfo(router) {
+            const infoDiv = document.getElementById('router-info');
+            infoDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong><i class="bi bi-geo-alt"></i> Lokasi:</strong> ${router.router_location || 'N/A'}</p>
+                        <p><strong><i class="bi bi-pc-display"></i> Identity:</strong> ${router.router_identity || 'N/A'}</p>
+                        <p><strong><i class="bi bi-cpu"></i> Model:</strong> ${router.system?.board_name || 'N/A'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong><i class="bi bi-broadcast"></i> Versi OS:</strong> ${router.system?.version || 'N/A'}</p>
+                        <p><strong><i class="bi bi-clock-history"></i> Uptime:</strong> ${router.system?.uptime || 'N/A'}</p>
+                        <p><strong><i class="bi bi-speedometer2"></i> CPU Load:</strong> ${router.system?.cpu_load || 'N/A'}%</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Update tabel client
+        function updateClientTable(clients) {
+            const tableBody = document.getElementById('client-table-body');
+            const badge = document.getElementById('client-count-badge');
             
-            // Update last update
-            const date = new Date(data.last_updated);
-            document.getElementById('lastUpdate').textContent = 
-                date.toLocaleString('id-ID', { hour12: false });
+            badge.textContent = clients.length;
             
-            // Update table
+            if (clients.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Tidak ada client wireless yang terhubung.</td></tr>`;
+                return;
+            }
+            
             let html = '';
-            data.customers.forEach(customer => {
+            clients.forEach((client, index) => {
+                const signalClass = getSignalClass(client.signal_strength);
                 html += `
                     <tr>
-                        <td>${customer.no}</td>
-                        <td><strong>${customer.name}</strong></td>
-                        <td>${customer.ip}</td>
-                        <td><span class="status ${customer.status.toLowerCase()}">${customer.status}</span></td>
-                        <td>${date.toLocaleTimeString('id-ID', { hour12: false })}</td>
+                        <td>${index + 1}</td>
+                        <td><code>${client.mac_address || 'N/A'}</code></td>
+                        <td>${client.interface || 'N/A'}</td>
+                        <td class="${signalClass}"><i class="bi bi-wifi"></i> ${client.signal_strength || 'N/A'}</td>
+                        <td>${client.uptime || 'N/A'}</td>
+                        <td>${client.tx_rate || 'N/A'}</td>
+                        <td>${client.rx_rate || 'N/A'}</td>
                     </tr>
                 `;
             });
-            document.getElementById('tableBody').innerHTML = html;
-            
-            // Alert jika ada offline
-            if (data.summary.offline_customers > 0) {
-                if (Notification.permission === 'granted') {
-                    new Notification('⚠️ RKS NET Alert', {
-                        body: `${data.summary.offline_customers} pelanggan OFFLINE`,
-                        icon: 'https://cdn-icons-png.flaticon.com/512/2991/2991148.png'
-                    });
-                }
-            }
+            tableBody.innerHTML = html;
         }
-        
-        // Auto refresh
-        let countdown = 60;
-        setInterval(() => {
-            countdown--;
-            document.getElementById('countdown').textContent = countdown;
-            if (countdown <= 0) {
-                countdown = 60;
-                loadData();
-            }
-        }, 1000);
-        
-        setInterval(loadData, 60000);
-        window.onload = loadData;
+
+        // Helper: tentukan kelas CSS berdasarkan kekuatan sinyal
+        function getSignalClass(signalStr) {
+            if (!signalStr) return '';
+            const signal = parseInt(signalStr.replace('dBm', '').trim());
+            if (signal >= -60) return 'signal-good';
+            if (signal >= -70) return 'signal-weak';
+            return 'signal-poor';
+        }
+
+        // Update waktu terakhir refresh
+        function updateLastUpdate() {
+            const now = new Date();
+            document.getElementById('last-update').textContent = now.toLocaleTimeString('id-ID');
+        }
+
+        // Tampilkan/sembunyikan loading spinner
+        function showLoading(show) {
+            document.getElementById('loading-spinner').style.display = show ? 'block' : 'none';
+        }
+
+        // Tampilkan pesan error
+        function showError(message) {
+            const tableBody = document.getElementById('client-table-body');
+            tableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger"><i class="bi bi-exclamation-triangle"></i> ${message}</td></tr>`;
+        }
+
+        // Fungsi refresh manual
+        function refreshData() {
+            clearInterval(autoRefreshInterval);
+            fetchData();
+            startAutoRefresh();
+        }
+
+        // Auto refresh setiap 30 detik
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(fetchData, 30000); // 30 detik
+        }
+
+        // Jalankan saat halaman pertama kali dimuat
+        document.addEventListener('DOMContentLoaded', function() {
+            fetchData();
+            startAutoRefresh();
+        });
     </script>
 </body>
 </html>
